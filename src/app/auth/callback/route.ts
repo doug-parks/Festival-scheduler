@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+/**
+ * Sanitize the `next` redirect target so it can only point to a local
+ * path. Prevents open-redirect via crafted ?next=https://evil.example.
+ *
+ * Allowed: paths that start with "/" but NOT "//".
+ * Anything else falls back to "/calendar".
+ */
+function safeNext(next: string | null): string {
+  if (!next) return "/calendar";
+  if (!next.startsWith("/") || next.startsWith("//")) return "/calendar";
+  return next;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/calendar";
+  const next = safeNext(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
