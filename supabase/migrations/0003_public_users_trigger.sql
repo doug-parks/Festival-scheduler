@@ -1,0 +1,27 @@
+-- Fest Planner — public.users row creation on first sign-in
+--
+-- Slot reserved by Item 2 (#2 "Create public.users row on first sign-in and
+-- collect username"). The Research recommendation in the Notion spec proposed
+-- a Supabase trigger on `auth.users` insert to auto-create `public.users` rows
+-- with a null username. PM and PRD §6.1 chose the opposite approach:
+--
+--   * No `public.users` row exists until the user submits a username on
+--     `/onboarding/username`.
+--   * The auth callback at `src/app/auth/callback/route.ts` reads
+--     `public.users` for `auth.uid()`; missing row → redirect to onboarding.
+--   * The onboarding page client-inserts the row via the existing
+--     `users_insert_self` RLS policy (see `0002_rls.sql`).
+--
+-- This sidesteps a partial-row state (null username in a NOT NULL column) and
+-- keeps row creation in one place (the form submit handler). No DDL is
+-- required: the `public.users` table, its uniqueness constraints, the
+-- `users_username_lower_idx` index, and the `users_insert_self` policy all
+-- already exist from `0001_init.sql` / `0002_rls.sql`.
+--
+-- This migration is intentionally a no-op so that the slot stays consumed and
+-- migration ordering against Items 5 (`0005_…`) and 6 (`0006_…`) in parallel
+-- remains stable. Future renames of the username (out of scope here) or any
+-- shift toward a trigger pattern can land in later migrations.
+
+-- no-op
+select 1;
