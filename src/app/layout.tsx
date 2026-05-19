@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Toaster } from "sonner";
 import { Nav } from "@/components/nav";
 import "./globals.css";
 
@@ -26,6 +27,13 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col">
         <Nav />
         <main className="flex-1">{children}</main>
+        <Toaster
+          position="bottom-center"
+          theme="dark"
+          expand
+          richColors
+          closeButton
+        />
       </body>
     </html>
   );
