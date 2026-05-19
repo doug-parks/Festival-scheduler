@@ -43,6 +43,8 @@ type Props = {
   initialDayKey: string;
   /** True when device clock falls within the festival range. */
   isFestivalLive: boolean;
+  /** Auth user id — required so each tile can write picks as the current user. */
+  userId: string;
 };
 
 /**
@@ -65,6 +67,7 @@ export function CalendarGrid({
   dayOptions,
   initialDayKey,
   isFestivalLive,
+  userId,
 }: Props) {
   const [mode, setMode] = useState<ViewMode>("day");
   const [activeDayKey, setActiveDayKey] = useState(initialDayKey);
@@ -262,6 +265,7 @@ export function CalendarGrid({
               pxPerMin={pxPerMin}
               nowMs={nowMs}
               mode={mode}
+              userId={userId}
             />
           )}
         </div>
@@ -283,6 +287,7 @@ function GridBody({
   pxPerMin,
   nowMs,
   mode,
+  userId,
 }: {
   dayKeysToRender: string[];
   dayOptions: DayOption[];
@@ -292,6 +297,7 @@ function GridBody({
   pxPerMin: number;
   nowMs: number | null;
   mode: ViewMode;
+  userId: string;
 }) {
   const ticks = hourTickOffsets();
   const bodyHeight = gridBodyHeight(pxPerMin);
@@ -384,6 +390,7 @@ function GridBody({
                         dayKey={dayKey}
                         timezone={timezone}
                         pxPerMin={pxPerMin}
+                        userId={userId}
                       />
                     ))}
                   </div>

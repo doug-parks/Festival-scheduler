@@ -204,6 +204,7 @@ export default async function CalendarPage() {
       dayOptions={dayOptions}
       initialDayKey={initialDayKey}
       isFestivalLive={isFestivalLive}
+      userId={user.id}
     />
   );
 }
