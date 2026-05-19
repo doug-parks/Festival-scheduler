@@ -16,31 +16,48 @@ Full PRD lives in Notion: *Development Projects – Apps → Fest Planner*.
 - `dev` — integration; feature branches merge here first
 - `claude/*` — Claude Code work branches off `dev`
 
-## Local setup
+## Setup
+
+This project's Supabase is provisioned via the **Vercel Marketplace**. The
+Vercel project (`festival-scheduler` under `doug-parks-projects`) holds all
+Supabase env vars; pull them locally with `vercel env pull .env.local`.
 
 1. **Install deps**
    ```bash
    pnpm install
    ```
 
-2. **Create a Supabase project** and copy its URL + anon key.
-
-3. **Configure env**
+2. **Pull env from Vercel**
    ```bash
-   cp .env.example .env.local
-   # then fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+   vercel link --scope doug-parks-projects --project festival-scheduler
+   vercel env pull .env.local
    ```
+   This sets `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `POSTGRES_*`, and `NEXT_PUBLIC_ADMIN_EMAIL`.
 
-4. **Apply migrations** in the Supabase SQL editor (or via `supabase db push`):
-   - `supabase/migrations/0001_init.sql` — schema
-   - `supabase/migrations/0002_rls.sql` — RLS policies
+3. **Apply migrations** (once per migration file):
+   ```bash
+   pnpm db:push
+   ```
+   Runs every `*.sql` under `supabase/migrations/` against
+   `POSTGRES_URL_NON_POOLING`. Already applied: `0001_init.sql`,
+   `0002_rls.sql`.
 
-5. **Configure Google OAuth** in Supabase Auth → Providers:
-   - Add your Google OAuth client ID + secret
-   - Add `http://localhost:3000/auth/callback` and the production callback
-     to allowed redirect URLs.
+4. **Configure Google OAuth** (one-time, requires both Google Cloud Console and
+   Supabase dashboard access — Claude cannot do this step):
+   1. In **Google Cloud Console** → APIs & Services → Credentials → create an
+      OAuth 2.0 Client ID (type: Web application).
+   2. Add authorized redirect URIs:
+      - `https://<your-supabase-project>.supabase.co/auth/v1/callback`
+      - `http://localhost:3000/auth/callback` (dev)
+      - `https://festival-scheduler.vercel.app/auth/callback` (production)
+      - `https://*.vercel.app/auth/callback` (preview deploys — add per-branch as needed)
+   3. In **Supabase dashboard** → Authentication → Providers → Google: paste
+      the client ID and secret. Enable.
+   4. In **Supabase dashboard** → Authentication → URL Configuration: set
+      Site URL to the production URL; add preview/localhost to "Redirect URLs."
 
-6. **Run**
+5. **Run**
    ```bash
    pnpm dev
    ```
