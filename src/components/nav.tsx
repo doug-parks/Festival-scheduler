@@ -21,8 +21,8 @@ export async function Nav() {
           Fest Planner
         </Link>
         <NavLink href="/calendar">Lineup</NavLink>
-        <NavLink href="/my-schedule">My schedule</NavLink>
         <NavLink href="/overlap">Overlap</NavLink>
+        <NavLink href="/my-schedule">My schedule</NavLink>
         <NavLink href="/friends">Friends</NavLink>
         {isAdmin && <NavLink href="/admin">Admin</NavLink>}
         <div className="ml-auto flex items-center gap-3">
