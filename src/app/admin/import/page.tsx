@@ -1,16 +1,20 @@
-import { PagePlaceholder } from "@/components/page-placeholder";
+import { runImport } from "./actions";
+import { ImportForm } from "./import-form";
+
+export const dynamic = "force-dynamic";
 
 export default function AdminImportPage() {
   return (
-    <PagePlaceholder
-      title="Import MDF 2026"
-      blurb="Source: https://deathfests.com/set-times/"
-      next={[
-        "Build scraper at scripts/scrape-mdf-2026.ts (fetch + cheerio first; Playwright only if JS-rendered)",
-        "Normalize into bands, stages, sets",
-        "Upsert idempotently on (festival, band slug) and (band + start + stage)",
-        "Show a diff summary before commit",
-      ]}
-    />
+    <div className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Import MDF 2026</h1>
+      <p className="mt-2 text-sm text-neutral-400">
+        Source: <code>https://deathfests.com/set-times/</code>. Upserts bands,
+        stages, and sets into the MDF 2026 festival. Safe to re-run — natural
+        keys are <code>(festival, band slug)</code>,{" "}
+        <code>(festival, stage name)</code>, and{" "}
+        <code>(band, stage, start time)</code>.
+      </p>
+      <ImportForm action={runImport} />
+    </div>
   );
 }
