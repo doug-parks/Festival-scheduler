@@ -119,18 +119,15 @@ export function PickControl({
               onClick: () => apply(prior, next, source),
             },
           });
-        } catch (err) {
+        } catch {
           if (mySeq !== seqRef.current) return; // a newer write already took over.
           // Rollback: roll back to the prior pre-tap state. No undo toast on
           // failure — we didn't actually do anything to undo.
           setOptimistic(prior);
           onOptimisticChange?.(prior);
-          // Log full error to console for debugging; show short message in toast.
-          console.error("[pick-control] writePick failed", err);
-          const msg =
-            (err as { message?: string })?.message ??
-            "Couldn't save your pick — check your connection.";
-          toast.error(`Couldn't save: ${msg}`, { duration: 5000 });
+          toast.error("Couldn't save your pick — check your connection.", {
+            duration: 3000,
+          });
         }
       });
     },
