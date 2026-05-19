@@ -1,0 +1,18 @@
+{
+  "name": "Fest Planner",
+  "short_name": "Fest Planner",
+  "description": "Pick the bands you're seeing at the festival. See where your crew overlaps.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

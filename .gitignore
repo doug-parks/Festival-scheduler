@@ -1,0 +1,39 @@
+# deps
+node_modules
+.pnp
+.pnp.js
+
+# next
+.next
+out
+next-env.d.ts
+
+# build
+build
+dist
+
+# env
+.env
+.env.local
+.env*.local
+
+# editor / OS
+.DS_Store
+.idea
+.vscode
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# supabase
+supabase/.branches
+supabase/.temp
