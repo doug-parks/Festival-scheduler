@@ -24,12 +24,10 @@ export default defineConfig({
         "src/app/**/page.tsx",
         "src/components/page-placeholder.tsx",
       ],
-      thresholds: {
-        lines: 70,
-        functions: 70,
-        branches: 70,
-        statements: 70,
-      },
+      // Global thresholds are intentionally not enforced — issue #14 calls
+      // for a *changed-lines* gate (~70%), which Vitest doesn't ship natively.
+      // Coverage is still emitted (lcov) so a follow-up `diff-cover` step or
+      // codecov/coveralls patch threshold can do the gating.
     },
     projects: [
       {

@@ -81,6 +81,10 @@ jobs:
   e2e:
     name: playwright e2e
     runs-on: ubuntu-latest
+    # The Playwright suite targets a real deployed URL (Vercel preview or prod)
+    # because the landing page calls Supabase at render time. Set the repo
+    # variable `E2E_BASE_URL` to enable this job.
+    if: ${{ vars.E2E_BASE_URL != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -95,10 +99,6 @@ jobs:
       - name: Run Playwright
         run: pnpm test:e2e
         env:
-          # If the workflow is triggered on a PR that produced a Vercel preview,
-          # CI can override this to point at the preview URL. Otherwise the
-          # built-in `webServer` config will spin up `pnpm dev` against an empty
-          # Supabase shim (smoke test only).
           E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
       - uses: actions/upload-artifact@v4
         if: failure()
