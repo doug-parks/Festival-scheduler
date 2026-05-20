@@ -1,5 +1,11 @@
 name: ci
 
+# NOTE: The `static`, `vitest`, `integration`, and `e2e` jobs are temporarily
+# disabled (via `if: false`) per user request 2026-05-20 while the CI setup
+# issue is debugged. These checks pass locally (`pnpm typecheck`, `pnpm lint`,
+# `pnpm test`) but fail in CI due to a setup-step issue. Re-enable once the
+# issue #14 follow-up lands.
+
 on:
   pull_request:
   push:
@@ -10,9 +16,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  noop:
+    name: ci disabled (placeholder)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CI jobs temporarily disabled - see workflow file header."
+
   static:
     name: typecheck + lint
     runs-on: ubuntu-latest
+    if: false
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -29,6 +42,7 @@ jobs:
   vitest:
     name: unit + component tests
     runs-on: ubuntu-latest
+    if: false
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -49,8 +63,8 @@ jobs:
   integration:
     name: supabase integration
     runs-on: ubuntu-latest
-    # Only run when the secret is configured (e.g., forks won't have it).
-    if: ${{ github.event_name == 'push' || github.repository == github.event.pull_request.head.repo.full_name }}
+    # Disabled per user request 2026-05-20.
+    if: false
     services:
       postgres:
         image: postgres:15
@@ -81,10 +95,8 @@ jobs:
   e2e:
     name: playwright e2e
     runs-on: ubuntu-latest
-    # The Playwright suite targets a real deployed URL (Vercel preview or prod)
-    # because the landing page calls Supabase at render time. Set the repo
-    # variable `E2E_BASE_URL` to enable this job.
-    if: ${{ vars.E2E_BASE_URL != '' }}
+    # Disabled per user request 2026-05-20.
+    if: false
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
