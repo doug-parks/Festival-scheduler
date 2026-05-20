@@ -43,3 +43,6 @@ coverage
 playwright-report
 test-results
 .playwright
+
+# claude code local state (settings + worktrees)
+.claude/
