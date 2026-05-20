@@ -19,7 +19,7 @@ Full PRD lives in Notion: *Development Projects – Apps → Fest Planner*.
 ## Setup
 
 This project's Supabase is provisioned via the **Vercel Marketplace**. The
-Vercel project (`festival-scheduler` under `doug-parks-projects`) holds all
+Vercel project (`festival-scheduler` under `evokenware`) holds all
 Supabase env vars; pull them locally with `vercel env pull .env.local`.
 
 1. **Install deps**
@@ -29,7 +29,7 @@ Supabase env vars; pull them locally with `vercel env pull .env.local`.
 
 2. **Pull env from Vercel**
    ```bash
-   vercel link --scope doug-parks-projects --project festival-scheduler
+   vercel link --scope evokenware --project festival-scheduler
    vercel env pull .env.local
    ```
    This sets `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
