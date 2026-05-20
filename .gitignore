@@ -37,3 +37,9 @@ pnpm-debug.log*
 # supabase
 supabase/.branches
 supabase/.temp
+
+# tests
+coverage
+playwright-report
+test-results
+.playwright

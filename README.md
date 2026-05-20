@@ -62,6 +62,35 @@ Supabase env vars; pull them locally with `vercel env pull .env.local`.
    pnpm dev
    ```
 
+## Testing
+
+The project has four test surfaces, separated by Vitest "projects" plus a
+Playwright suite:
+
+| Layer | Command | Environment | Notes |
+| --- | --- | --- | --- |
+| Unit | `pnpm test:unit` | node | Pure functions (e.g. the scraper). |
+| Component | `pnpm test:component` | jsdom + RTL | React components with mocked Supabase. |
+| Integration | `pnpm test:integration` | node + real Postgres | Skipped when `INTEGRATION_DATABASE_URL` is unset. |
+| End-to-end | `pnpm test:e2e` | Playwright (Chromium + Mobile Safari) | Defaults to `http://localhost:3000`; override with `E2E_BASE_URL` to target a Vercel preview. |
+
+`pnpm test` runs unit + component (the fast inner loop). `pnpm test:coverage`
+produces `coverage/` with text, HTML, and lcov reports.
+
+CI (`.github/workflows/ci.yml`) runs typecheck + lint + Vitest + Playwright
+on every PR. The integration job spins up a Postgres service container.
+
+### Writing tests
+
+- **Unit** — `tests/unit/*.test.ts`. Vitest, no DOM.
+- **Component** — `tests/components/*.test.tsx`. jsdom + RTL. Mock Supabase
+  and any network calls via `vi.hoisted()` (`tests/components/pick-control.test.tsx`
+  is the canonical example).
+- **Integration** — `tests/integration/*.test.ts`. Direct Postgres via `pg`.
+  Wrap each suite in `BEGIN`/`ROLLBACK` to keep the DB clean.
+- **E2E** — `e2e/*.spec.ts`. Playwright. Use `E2E_BASE_URL` to point at a
+  Vercel preview when running locally against a deploy.
+
 ## Admin
 The admin email is hardcoded to `parks.doug@gmail.com` in two places:
 - Middleware (env: `NEXT_PUBLIC_ADMIN_EMAIL`) — gates `/admin/**` with a 404
@@ -87,3 +116,4 @@ Rotating the admin requires editing both.
 4. One-tap RYG picks + Realtime
 5. Friends + groups UI
 6. Overlap view
+7. Test coverage backfill (see Testing section above for layout)
