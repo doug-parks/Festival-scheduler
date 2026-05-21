@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "build": {
+    "env": {
+      "VERCEL_PREVIEW_FEEDBACK_ENABLED": "0"
+    }
+  }
+}
