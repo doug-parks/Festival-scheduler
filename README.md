@@ -19,7 +19,7 @@ Full PRD lives in Notion: *Development Projects – Apps → Fest Planner*.
 ## Setup
 
 This project's Supabase is provisioned via the **Vercel Marketplace**. The
-Vercel project (`festival-scheduler` under `doug-parks-projects`) holds all
+Vercel project (`festival-scheduler` under `evokenware`) holds all
 Supabase env vars; pull them locally with `vercel env pull .env.local`.
 
 1. **Install deps**
@@ -29,7 +29,7 @@ Supabase env vars; pull them locally with `vercel env pull .env.local`.
 
 2. **Pull env from Vercel**
    ```bash
-   vercel link --scope doug-parks-projects --project festival-scheduler
+   vercel link --scope evokenware --project festival-scheduler
    vercel env pull .env.local
    ```
    This sets `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
@@ -62,6 +62,35 @@ Supabase env vars; pull them locally with `vercel env pull .env.local`.
    pnpm dev
    ```
 
+## Testing
+
+The project has four test surfaces, separated by Vitest "projects" plus a
+Playwright suite:
+
+| Layer | Command | Environment | Notes |
+| --- | --- | --- | --- |
+| Unit | `pnpm test:unit` | node | Pure functions (e.g. the scraper). |
+| Component | `pnpm test:component` | jsdom + RTL | React components with mocked Supabase. |
+| Integration | `pnpm test:integration` | node + real Postgres | Skipped when `INTEGRATION_DATABASE_URL` is unset. |
+| End-to-end | `pnpm test:e2e` | Playwright (Chromium + Mobile Safari) | Defaults to `http://localhost:3000`; override with `E2E_BASE_URL` to target a Vercel preview. |
+
+`pnpm test` runs unit + component (the fast inner loop). `pnpm test:coverage`
+produces `coverage/` with text, HTML, and lcov reports.
+
+CI (`.github/workflows/ci.yml`) runs typecheck + lint + Vitest + Playwright
+on every PR. The integration job spins up a Postgres service container.
+
+### Writing tests
+
+- **Unit** — `tests/unit/*.test.ts`. Vitest, no DOM.
+- **Component** — `tests/components/*.test.tsx`. jsdom + RTL. Mock Supabase
+  and any network calls via `vi.hoisted()` (`tests/components/pick-control.test.tsx`
+  is the canonical example).
+- **Integration** — `tests/integration/*.test.ts`. Direct Postgres via `pg`.
+  Wrap each suite in `BEGIN`/`ROLLBACK` to keep the DB clean.
+- **E2E** — `e2e/*.spec.ts`. Playwright. Use `E2E_BASE_URL` to point at a
+  Vercel preview when running locally against a deploy.
+
 ## Admin
 The admin email is hardcoded to `parks.doug@gmail.com` in two places:
 - Middleware (env: `NEXT_PUBLIC_ADMIN_EMAIL`) — gates `/admin/**` with a 404
@@ -75,15 +104,16 @@ Rotating the admin requires editing both.
 - App Router scaffold, Tailwind, dark theme
 - Supabase SSR auth (browser + server clients, session middleware)
 - Google OAuth sign-in / callback / sign-out
-- Route shell: `/`, `/calendar`, `/my-schedule`, `/overlap`, `/friends`, `/admin`, `/admin/import`
-- Full schema migration (users, festivals, stages, bands, sets, picks, groups, invites, friend edges)
-- RLS policies matching PRD §9 (friends + group visibility, admin-only writes)
+- Route shell: `/`, `/calendar`, `/my-schedule`, `/overlap`, `/friends`, `/admin`
+- Single-festival schema (users, stages, bands, sets, picks, friend_edges, invite_links). Originally multi-festival; collapsed in `0008_simplify_to_mdf2026.sql` since the app is hardcoded to Maryland Deathfest 2026.
+- RLS policies matching PRD §9 (friend visibility, admin-only writes)
 - PWA manifest + icon (push notifications deferred to P1)
 
 **Next, in rough order:**
 1. Auth → `public.users` row on first sign-in (collect username)
-2. Admin importer for `https://deathfests.com/set-times/`
+2. ~~Admin importer for `https://deathfests.com/set-times/`~~ — replaced by the baked-in seed; regenerate with `node --experimental-strip-types scripts/generate-mdf-2026-data.ts`.
 3. Calendar grid component (stage × time)
 4. One-tap RYG picks + Realtime
 5. Friends + groups UI
 6. Overlap view
+7. Test coverage backfill (see Testing section above for layout)

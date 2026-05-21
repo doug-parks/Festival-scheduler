@@ -122,15 +122,10 @@ export function nowAndNextBounds(
   };
 }
 
-export type OverlapFilter = "all" | "crew" | "today" | "now-next";
+export type OverlapFilter = "all" | "today" | "now-next";
 
-export function defaultFilter(args: {
-  withinFestival: boolean;
-  userHasGroup: boolean;
-}): OverlapFilter {
-  if (!args.withinFestival) return "all";
-  // PM spec: "This crew / Today" during festival. We collapse to a single
-  // active chip (radiogroup), so pick "today" as the primary (most aggressive
-  // narrowing) and bias toward "crew" when the user has a group.
-  return args.userHasGroup ? "crew" : "today";
+export function defaultFilter(args: { withinFestival: boolean }): OverlapFilter {
+  // During festival run, default to "today" (most aggressive narrowing).
+  // Outside the window, "all" — there's no useful "today" to look at.
+  return args.withinFestival ? "today" : "all";
 }

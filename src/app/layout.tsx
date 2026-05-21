@@ -4,9 +4,12 @@ import { Nav } from "@/components/nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fest Planner",
+  title: {
+    default: "Fest Planner — MDF 2026",
+    template: "%s · Fest Planner",
+  },
   description:
-    "Pick the bands you're seeing at the festival. See where your crew overlaps.",
+    "Pick the bands you're seeing at Maryland Deathfest 2026 in Baltimore. See where your friends overlap.",
   manifest: "/manifest.webmanifest",
 };
 
