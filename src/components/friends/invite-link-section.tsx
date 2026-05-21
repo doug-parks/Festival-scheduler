@@ -5,33 +5,24 @@ import {
   generateInviteLink,
   revokeInviteLink,
 } from "@/lib/friends/actions";
-import type { CrewMember } from "@/lib/friends/queries";
-import { FriendAvatar } from "./avatar";
 
 type Props = {
-  groupName: string;
   inviteUrl: string | null;
-  crew: CrewMember[];
-  currentUserId: string;
 };
 
 /**
- * The "Your MDF 2026 crew" section: invite link generator + copy-able URL
- * + revoke + member list.
+ * Personal invite-link panel. Anyone who opens the URL gets a pending
+ * follow request to the link owner; mutual-follow happens when the owner
+ * accepts. One active link per user; "Generate" twice in a row is a no-op
+ * (returns the existing token).
  *
  * State flow:
- *   no group/no link → "Create crew & get invite link" button
+ *   no link → "Get an invite link" button
  *   has link → URL input + Copy + Revoke
  *   just revoked → "Link revoked." + "Generate new link" button
  */
-export function InviteLinkSection({
-  groupName,
-  inviteUrl,
-  crew,
-  currentUserId,
-}: Props) {
+export function InviteLinkSection({ inviteUrl }: Props) {
   const [url, setUrl] = useState<string | null>(inviteUrl);
-  const [name, setName] = useState<string>(groupName);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revoked, setRevoked] = useState(false);
@@ -56,7 +47,6 @@ export function InviteLinkSection({
         return;
       }
       setUrl(result.data.url);
-      setName(result.data.groupName);
     });
   }
 
@@ -95,10 +85,13 @@ export function InviteLinkSection({
   }
 
   return (
-    <section aria-labelledby="crew-heading">
-      <h2 id="crew-heading" className="mb-4 text-lg font-semibold">
-        Your {name}
+    <section aria-labelledby="invite-heading">
+      <h2 id="invite-heading" className="mb-2 text-lg font-semibold">
+        Share an invite link
       </h2>
+      <p className="mb-4 text-sm text-neutral-400">
+        Anyone with this link can request to follow you on MDF 2026.
+      </p>
 
       {url ? (
         <div className="space-y-3">
@@ -123,11 +116,7 @@ export function InviteLinkSection({
               {copyLabel}
             </button>
           </div>
-          <p
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-          >
+          <p aria-live="polite" aria-atomic="true" className="sr-only">
             {copyAnnounce}
           </p>
 
@@ -135,7 +124,7 @@ export function InviteLinkSection({
             <div className="flex items-center gap-3 rounded border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm">
               <span className="text-neutral-300">
                 Revoke this link? Anyone with the link won&apos;t be able to
-                join.
+                request to follow you.
               </span>
               <button
                 type="button"
@@ -166,9 +155,7 @@ export function InviteLinkSection({
         </div>
       ) : (
         <div className="space-y-3">
-          {revoked && (
-            <p className="text-sm text-neutral-400">Link revoked.</p>
-          )}
+          {revoked && <p className="text-sm text-neutral-400">Link revoked.</p>}
           <button
             type="button"
             onClick={handleGenerate}
@@ -179,7 +166,7 @@ export function InviteLinkSection({
               ? "Working…"
               : revoked
                 ? "Generate new link"
-                : "Create crew & get invite link"}
+                : "Get an invite link"}
           </button>
         </div>
       )}
@@ -188,45 +175,6 @@ export function InviteLinkSection({
         <p role="alert" className="mt-3 text-sm text-pick-red">
           {error}
         </p>
-      )}
-
-      {crew.length > 0 && (
-        <div className="mt-6">
-          <h3 className="mb-2 text-sm font-medium text-neutral-300">
-            Crew members
-          </h3>
-          <ul role="list" className="space-y-2">
-            {crew.map((m) => (
-              <li
-                key={m.user_id}
-                className="flex items-center gap-3 py-1"
-              >
-                <FriendAvatar
-                  url={m.avatar_url}
-                  name={m.display_name ?? m.username ?? "?"}
-                />
-                <div className="text-sm">
-                  <span className="text-neutral-200">
-                    {m.display_name ?? m.username ?? "Unknown user"}
-                    {m.user_id === currentUserId && (
-                      <span className="text-neutral-500"> (you)</span>
-                    )}
-                  </span>
-                  {m.username && (
-                    <span className="ml-2 text-neutral-500">
-                      @{m.username}
-                    </span>
-                  )}
-                  {m.role === "owner" && (
-                    <span className="ml-2 rounded bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-300">
-                      owner
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
     </section>
   );

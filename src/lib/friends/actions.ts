@@ -3,160 +3,67 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getFestivalId, buildInviteUrl, groupDisplayName } from "./queries";
-import { DEFAULT_GROUP_NAME } from "./constants";
+import { buildInviteUrl } from "./queries";
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
 /**
- * Generate (or fetch existing) invite link for the user's MDF 2026 crew.
+ * Generate (or fetch existing) personal invite link.
  *
- * If the user has no group for the festival yet:
- *   1. create the group (festival_groups)
- *   2. add the caller as owner (festival_group_memberships)
- *   3. create the invite (festival_group_invites)
- *
- * If a group exists but has no active invite, just create the invite.
- * If an active invite exists, return it — calling "Generate" twice in
- * a row is a no-op rather than a flood of stale tokens.
+ * Post-simplification: there is no group entity anymore. Each user has at
+ * most one active invite_link; anyone hitting /join/<token> while signed in
+ * gets a pending friend request to the link owner. Calling this twice in a
+ * row is a no-op rather than minting fresh tokens.
  */
 export async function generateInviteLink(
   origin: string,
-): Promise<ActionResult<{ token: string; url: string; groupName: string }>> {
+): Promise<ActionResult<{ token: string; url: string }>> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  const festivalId = await getFestivalId();
-  if (!festivalId) {
-    return {
-      ok: false,
-      error: "No festival is configured yet. Ask an admin to import the lineup.",
-    };
-  }
-
-  // 1. Find or create the user's group for this festival.
-  let groupId: string | null = null;
-  let groupName: string = DEFAULT_GROUP_NAME;
-
-  type FgSlice = { id: string; name: string | null };
-  type ExistingMembershipRow = {
-    group_id: string;
-    festival_groups: FgSlice | FgSlice[] | null;
-  };
-  const { data: existingMembershipRaw } = await supabase
-    .from("festival_group_memberships")
-    .select("group_id, festival_groups!inner(id, name, festival_id)")
-    .eq("user_id", user.id)
-    .eq("festival_groups.festival_id", festivalId)
-    .limit(1)
-    .maybeSingle();
-  const existingMembership =
-    existingMembershipRaw as unknown as ExistingMembershipRow | null;
-
-  const fgRel = existingMembership?.festival_groups ?? null;
-  const existingGroup: FgSlice | null = Array.isArray(fgRel)
-    ? (fgRel[0] ?? null)
-    : fgRel;
-
-  if (existingGroup) {
-    groupId = existingGroup.id;
-    groupName = groupDisplayName(existingGroup.name);
-  } else {
-    const { data: newGroup, error: groupErr } = await supabase
-      .from("festival_groups")
-      .insert({
-        festival_id: festivalId,
-        name: null, // Display falls back to "MDF 2026 crew".
-        created_by_user_id: user.id,
-      })
-      .select("id, name")
-      .single();
-    if (groupErr || !newGroup) {
-      return {
-        ok: false,
-        error: `Couldn't create your crew: ${groupErr?.message ?? "unknown"}`,
-      };
-    }
-    groupId = newGroup.id;
-    groupName = groupDisplayName(newGroup.name);
-
-    const { error: memErr } = await supabase
-      .from("festival_group_memberships")
-      .insert({
-        group_id: groupId,
-        user_id: user.id,
-        role: "owner",
-      });
-    if (memErr) {
-      // Best-effort rollback so we don't leave an orphan group with no
-      // owner. We just inserted via `created_by_user_id = auth.uid()`,
-      // so the delete RLS (`fg_delete_owner`) won't pass — but the user
-      // *is* about to become the owner. As a fallback, the orphan group
-      // is harmless: it has no invites and only the creator can see it.
-      await supabase.from("festival_groups").delete().eq("id", groupId);
-      return {
-        ok: false,
-        error: `Couldn't add you to the crew: ${memErr.message}`,
-      };
-    }
-  }
-
-  // 2. Reuse an active invite if one exists. (Per-spec QA note: a re-call
-  //    doesn't flood new tokens — old links remain usable.)
-  const { data: activeInvite } = await supabase
-    .from("festival_group_invites")
+  // Reuse an active link if one exists.
+  const { data: active } = await supabase
+    .from("invite_links")
     .select("token")
-    .eq("group_id", groupId)
+    .eq("owner_user_id", user.id)
     .is("revoked_at", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (activeInvite?.token) {
+  if (active?.token) {
     revalidatePath("/friends");
     return {
       ok: true,
-      data: {
-        token: activeInvite.token,
-        url: buildInviteUrl(origin, activeInvite.token),
-        groupName,
-      },
+      data: { token: active.token, url: buildInviteUrl(origin, active.token) },
     };
   }
 
-  // 3. Mint a fresh invite token.
+  // Mint a fresh invite token.
   const token = crypto.randomUUID();
-  const { error: invErr } = await supabase
-    .from("festival_group_invites")
-    .insert({
-      group_id: groupId,
-      token,
-      created_by_user_id: user.id,
-      // expires_at left null — non-expiring in v1 per PRD.
-    });
-  if (invErr) {
-    return {
-      ok: false,
-      error: `Couldn't create invite link: ${invErr.message}`,
-    };
-  }
+  const { error } = await supabase.from("invite_links").insert({
+    token,
+    owner_user_id: user.id,
+  });
+  if (error)
+    return { ok: false, error: `Couldn't create invite link: ${error.message}` };
 
   revalidatePath("/friends");
   return {
     ok: true,
-    data: { token, url: buildInviteUrl(origin, token), groupName },
+    data: { token, url: buildInviteUrl(origin, token) },
   };
 }
 
 /**
- * Revoke the active invite link for the user's group. After this, the old
- * URL renders the "no longer valid" page. A new link can be minted by
- * calling `generateInviteLink` again.
+ * Revoke the active invite link for the caller. After this, the old URL
+ * renders the "no longer valid" page. A new link can be minted by calling
+ * `generateInviteLink` again.
  */
 export async function revokeInviteLink(token: string): Promise<ActionResult> {
   const supabase = await createClient();
@@ -166,9 +73,9 @@ export async function revokeInviteLink(token: string): Promise<ActionResult> {
   if (!user) return { ok: false, error: "Not signed in." };
   if (!token) return { ok: false, error: "Missing invite token." };
 
-  // RLS (fgi_member) gates this update to group members — sufficient guard.
+  // RLS (invite_links_owner_all) gates this update to the owner.
   const { error } = await supabase
-    .from("festival_group_invites")
+    .from("invite_links")
     .update({ revoked_at: new Date().toISOString() })
     .eq("token", token)
     .is("revoked_at", null);
@@ -179,26 +86,31 @@ export async function revokeInviteLink(token: string): Promise<ActionResult> {
   return { ok: true, data: undefined };
 }
 
+export type AcceptInviteStatus =
+  | "requested"
+  | "already_friends"
+  | "request_pending"
+  | "self";
+
 /**
- * Accept an invite token. Uses the `accept_group_invite` SECURITY DEFINER
- * RPC (see 0005_friend_search.sql) so it works for *strangers* who aren't
- * yet members of the group. RLS on festival_group_invites would otherwise
- * block their lookup.
- *
- * Returns:
- *   ok=true   → joined or already_member
- *   ok=false  → 'invalid' | 'revoked' | rpc error
+ * Accept an invite token. Sends a pending friend_edge from the caller to the
+ * link owner via the `accept_invite_link` SECURITY DEFINER RPC.
  */
 export async function acceptInvite(
   token: string,
-): Promise<ActionResult<{ groupName: string }>> {
+): Promise<
+  ActionResult<{
+    status: AcceptInviteStatus;
+    ownerDisplayName: string;
+  }>
+> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  const { data, error } = await supabase.rpc("accept_group_invite", {
+  const { data, error } = await supabase.rpc("accept_invite_link", {
     invite_token: token,
   });
 
@@ -210,11 +122,17 @@ export async function acceptInvite(
   if (row.status === "invalid") return { ok: false, error: "invalid" };
   if (row.status === "revoked") return { ok: false, error: "revoked" };
 
-  // joined | already_member → success.
-  revalidatePath("/friends");
+  const ownerDisplayName =
+    (row.owner_display_name as string | null) ??
+    (row.owner_username as string | null) ??
+    "your friend";
+
   return {
     ok: true,
-    data: { groupName: groupDisplayName(row.group_name) },
+    data: {
+      status: row.status as AcceptInviteStatus,
+      ownerDisplayName,
+    },
   };
 }
 
@@ -240,9 +158,6 @@ export async function sendFriendRequest(
   const [aId, bId] =
     user.id < targetUserId ? [user.id, targetUserId] : [targetUserId, user.id];
 
-  // If an edge already exists for this pair, the unique constraint will
-  // reject the insert. Check first so we can give a friendly error and
-  // handle the declined→re-request case.
   const { data: existing } = await supabase
     .from("friend_edges")
     .select("id, status, requested_by_user_id")
@@ -260,9 +175,6 @@ export async function sendFriendRequest(
     if (existing.status === "blocked") {
       return { ok: false, error: "Can't send a request to this user." };
     }
-    // declined — allow re-send by deleting and re-inserting. Simpler than
-    // an UPDATE because the RLS for update is recipient-only and we may
-    // be either side of the pair.
     const { error: delErr } = await supabase
       .from("friend_edges")
       .delete()
@@ -283,10 +195,6 @@ export async function sendFriendRequest(
   return { ok: true, data: undefined };
 }
 
-/**
- * Recipient accepts a pending friend request. RLS (fe_update_recipient)
- * enforces that only the non-requester endpoint can flip status.
- */
 export async function acceptFriendRequest(
   edgeId: string,
 ): Promise<ActionResult> {
@@ -311,9 +219,6 @@ export async function acceptFriendRequest(
   return { ok: true, data: undefined };
 }
 
-/**
- * Recipient declines a pending friend request.
- */
 export async function declineFriendRequest(
   edgeId: string,
 ): Promise<ActionResult> {
@@ -338,12 +243,6 @@ export async function declineFriendRequest(
   return { ok: true, data: undefined };
 }
 
-/**
- * Sender cancels a pending request they sent. (PM spec was silent on this;
- * we allow it — pending requests with nobody home shouldn't be stuck.)
- * RLS fe_delete_either permits delete by either endpoint, so this works
- * for the sender even though they can't UPDATE the row.
- */
 export async function cancelFriendRequest(
   edgeId: string,
 ): Promise<ActionResult> {
@@ -368,10 +267,6 @@ export async function cancelFriendRequest(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Form-action wrappers.
-//
-// These accept FormData so they can be used with `<form action={...}>`
-// without client JS. Each redirects back to /friends after the mutation
-// so the page re-renders with fresh data.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function revokeInviteFormAction(formData: FormData) {

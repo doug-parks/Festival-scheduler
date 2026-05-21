@@ -2,24 +2,25 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { acceptInvite } from "@/lib/friends/actions";
-import { DEFAULT_GROUP_NAME } from "@/lib/friends/constants";
 import { JoinSignInButton } from "@/components/join-sign-in-button";
 
-type RpcCtx = { group_name: string | null } | null;
+type RpcCtx = {
+  owner_username: string | null;
+  owner_display_name: string | null;
+} | null;
 
 /**
  * /join/[token] — the invite-link landing page.
  *
  * Behavior matrix:
- *   - signed out, valid token   → show "Join the MDF 2026 crew" + Google button
- *   - signed out, invalid token → show "Invite no longer valid" (no redirect)
- *   - signed in,  valid token   → run acceptInvite() → redirect to /calendar?joined=…
- *   - signed in,  invalid       → show "Invite no longer valid"
+ *   - signed out, valid token   → "Follow <owner> on MDF 2026" + Google button
+ *   - signed out, invalid token → "Invite no longer valid"
+ *   - signed in,  valid token   → run acceptInvite() → redirect to /friends
+ *   - signed in,  invalid       → "Invite no longer valid"
  *
- * For signed-out users we look up the group name via the
- * `get_invite_context` SECURITY DEFINER function (no PII exposed) so the
- * pre-auth screen can say "Joining MDF 2026 crew" — that PM-required
- * context is what converts invitees.
+ * Post-simplification: the invite no longer joins a group; it sends a
+ * pending friend request to the link owner. Mutual-follow happens when
+ * the owner accepts back from their /friends page.
  */
 export default async function JoinPage({
   params,
@@ -33,20 +34,17 @@ export default async function JoinPage({
   } = await supabase.auth.getUser();
 
   if (user) {
-    // Signed in. Try to accept directly.
     const result = await acceptInvite(token);
     if (result.ok) {
-      // Pass the group name through to /calendar as a query param so the
-      // banner can render. Safe — value is server-validated.
-      redirect(`/calendar?joined=${encodeURIComponent(result.data.groupName)}`);
+      redirect(
+        `/friends?requested=${encodeURIComponent(result.data.status)}&owner=${encodeURIComponent(result.data.ownerDisplayName)}`,
+      );
     }
-    // Fall through to the invalid/revoked page below.
     return <InvalidInvitePage reason={result.error} />;
   }
 
-  // Signed-out path. Read the public invite context (group name only) so
-  // we can render "Join the MDF 2026 crew" before they sign in. Returns
-  // null for invalid/revoked tokens.
+  // Signed-out path: look up the owner's display name so the pre-auth page
+  // can name them before the Google button.
   const { data: ctxRow } = await supabase
     .rpc("get_invite_context", { invite_token: token })
     .maybeSingle<RpcCtx>();
@@ -55,8 +53,10 @@ export default async function JoinPage({
     return <InvalidInvitePage reason="invalid" />;
   }
 
-  const groupName =
-    (ctxRow.group_name?.trim() || null) ?? DEFAULT_GROUP_NAME;
+  const ownerDisplay =
+    ctxRow.owner_display_name?.trim() ||
+    ctxRow.owner_username?.trim() ||
+    "your friend";
 
   return (
     <div className="mx-auto max-w-md px-6 py-16 text-center">
@@ -64,10 +64,11 @@ export default async function JoinPage({
         Fest Planner
       </p>
       <h1 className="mt-4 text-2xl font-semibold">
-        Join the {groupName}
+        Follow {ownerDisplay} on MDF 2026
       </h1>
       <p className="mt-3 text-sm text-neutral-400">
-        Sign in to see where your crew is picking on the festival lineup.
+        Sign in to send a follow request and see where they&apos;re going at
+        Maryland Deathfest 2026.
       </p>
       <div className="mt-8">
         <JoinSignInButton token={token} />
@@ -89,7 +90,7 @@ function InvalidInvitePage({ reason }: { reason?: string }) {
       <h1 className="text-2xl font-semibold">Invite no longer valid</h1>
       <p className="mt-3 text-sm text-neutral-400">{message}</p>
       <p className="mt-2 text-sm text-neutral-400">
-        Ask a crew member to send you a new one.
+        Ask your friend for a fresh link.
       </p>
       <div className="mt-8">
         <Link

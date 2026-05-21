@@ -1,9 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { CalendarEmpty } from "@/components/calendar/CalendarEmpty";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import type { DayOption } from "@/components/calendar/DaySelector";
-import { FESTIVAL_SLUG } from "@/lib/constants";
+import { FESTIVAL } from "@/lib/constants";
 import { festivalDayKey } from "@/lib/grid-math";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -14,14 +15,8 @@ import type {
 } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-type FestivalRow = {
-  id: string;
-  slug: string;
-  name: string;
-  timezone: string;
-  start_date: string;
-  end_date: string;
+export const metadata: Metadata = {
+  title: "MDF 2026 lineup",
 };
 
 type StageRow = {
@@ -57,6 +52,17 @@ type UserRow = {
   avatar_url: string | null;
 };
 
+// Hardcoded festival — see src/lib/constants.ts. The festivals table was
+// dropped in 0008_simplify_to_mdf2026.sql; nothing reads from it anymore.
+const FESTIVAL_OBJ: Festival = {
+  id: FESTIVAL.slug,
+  slug: FESTIVAL.slug,
+  name: FESTIVAL.name,
+  timezone: FESTIVAL.timezone,
+  start_date: FESTIVAL.start_date,
+  end_date: FESTIVAL.end_date,
+};
+
 export default async function CalendarPage() {
   const supabase = await createClient();
   const {
@@ -68,28 +74,10 @@ export default async function CalendarPage() {
     !!process.env.NEXT_PUBLIC_ADMIN_EMAIL &&
     user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
-  // 1) Festival row.
-  const { data: festivalRow } = await supabase
-    .from("festivals")
-    .select("id, slug, name, timezone, start_date, end_date")
-    .eq("slug", FESTIVAL_SLUG)
-    .maybeSingle<FestivalRow>();
-
-  if (!festivalRow) {
-    return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
-        <CalendarEmpty isAdmin={isAdmin} />
-      </div>
-    );
-  }
-
-  const festival: Festival = festivalRow;
-
-  // 2) Stages.
+  // 1) Stages (single festival; the festival_id column was dropped).
   const { data: stageRows } = await supabase
     .from("stages")
     .select("id, name, sort_order, display_color")
-    .eq("festival_id", festival.id)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true })
     .returns<StageRow[]>();
@@ -101,7 +89,7 @@ export default async function CalendarPage() {
     display_color: s.display_color,
   }));
 
-  // 3) Sets + bands. Filter to this festival's stages.
+  // 2) Sets + bands.
   const stageIds = stages.map((s) => s.id);
   let sets: CalendarSet[] = [];
 
@@ -115,8 +103,7 @@ export default async function CalendarPage() {
 
     const rows = setRows ?? [];
 
-    // 4) Picks visible to me (RLS gates this via can_see_user). Pull all
-    // picks for the sets in this festival in one query.
+    // 3) Picks visible to me (RLS gates this via can_see_user).
     const setIds = rows.map((r) => r.id);
     let picks: PickRow[] = [];
     let friendUsers: UserRow[] = [];
@@ -150,7 +137,7 @@ export default async function CalendarPage() {
         myPickBySet.set(p.set_id, p.state);
       } else {
         const friend = friendsById.get(p.user_id);
-        if (!friend) continue; // RLS may hide the user row even if pick visible
+        if (!friend) continue;
         const bucket = friendsBySet.get(p.set_id) ?? [];
         bucket.push({
           user_id: friend.id,
@@ -178,17 +165,16 @@ export default async function CalendarPage() {
     });
   }
 
-  // 5) Day options — derived from festival dates. Each entry's `key`
-  // corresponds to the festival-local "schedule day" (10 AM grid start).
-  const dayOptions = buildDayOptions(festival);
+  // 4) Day options — derived from the hardcoded festival dates.
+  const dayOptions = buildDayOptions(FESTIVAL_OBJ);
 
-  // 6) Initial day: today if device clock is within range, else first day.
-  const nowKey = festivalDayKey(new Date().toISOString(), festival.timezone);
+  // 5) Initial day: today if device clock is within range, else first day.
+  const nowKey = festivalDayKey(new Date().toISOString(), FESTIVAL_OBJ.timezone);
   const isFestivalLive = dayOptions.some((d) => d.key === nowKey);
   const initialDayKey =
     dayOptions.find((d) => d.key === nowKey)?.key ?? dayOptions[0]?.key ?? "";
 
-  if (dayOptions.length === 0) {
+  if (dayOptions.length === 0 || stages.length === 0) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
         <CalendarEmpty isAdmin={isAdmin} />
@@ -198,7 +184,7 @@ export default async function CalendarPage() {
 
   return (
     <CalendarGrid
-      festival={festival}
+      festival={FESTIVAL_OBJ}
       stages={stages}
       sets={sets}
       dayOptions={dayOptions}
@@ -243,8 +229,6 @@ function buildDayOptions(festival: Festival): DayOption[] {
     const y = d.getUTCFullYear();
     const m = String(d.getUTCMonth() + 1).padStart(2, "0");
     const day = String(d.getUTCDate()).padStart(2, "0");
-    // Anchor mid-day in the festival tz so the formatter doesn't roll us
-    // into the previous calendar day for east-of-UTC zones.
     const midday = new Date(`${y}-${m}-${day}T12:00:00Z`);
     out.push({
       key: `${y}-${m}-${day}`,

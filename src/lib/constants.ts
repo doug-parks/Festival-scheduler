@@ -31,8 +31,25 @@ export const HEADER_HEIGHT = 40;
 export const GRID_START_HOUR = 10;
 export const GRID_DURATION_MIN = 18 * 60;
 
-/** Festival slug — hardcoded for v1 per PM spec. */
-export const FESTIVAL_SLUG = "mdf-2026";
+/**
+ * Festival metadata — hardcoded. Fest Planner is a single-festival app for
+ * Maryland Deathfest 2026 in Baltimore. Multi-festival generality used to
+ * live in the database; it was stripped in the "simplify to MDF only"
+ * refactor. To onboard a different festival, edit these constants, replace
+ * `tests/fixtures/mdf-2026.html`, and re-run the generator at
+ * `scripts/generate-mdf-2026-data.ts`.
+ */
+export const FESTIVAL = {
+  slug: "mdf-2026",
+  name: "Maryland Deathfest 2026",
+  shortName: "MDF 2026",
+  city: "Baltimore",
+  state: "MD",
+  timezone: "America/New_York",
+  start_date: "2026-05-20",
+  end_date: "2026-05-24",
+} as const;
+
 
 /** Zoom multipliers applied to PX_PER_MIN. */
 export const ZOOM_LEVELS = [1, 2, 3] as const;

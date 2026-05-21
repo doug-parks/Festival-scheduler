@@ -1,9 +1,7 @@
-import Link from "next/link";
-
 /**
- * Standalone empty state used when there's no festival row at all (the
- * importer hasn't run). Inside CalendarGrid we use a separate "no sets"
- * state that preserves the day chrome.
+ * Standalone empty state used when there are no stages in the database
+ * (the MDF 2026 seed migration hasn't been applied yet). Inside CalendarGrid
+ * we use a separate "no sets" state that preserves the day chrome.
  */
 export function CalendarEmpty({ isAdmin }: { isAdmin: boolean }) {
   return (
@@ -12,9 +10,8 @@ export function CalendarEmpty({ isAdmin }: { isAdmin: boolean }) {
         <p className="text-lg font-medium text-neutral-200">No lineup yet</p>
         {isAdmin ? (
           <p className="mt-2 text-sm text-neutral-400">
-            <Link href="/admin/import" className="underline">
-              Import the lineup from the admin panel.
-            </Link>
+            Apply the latest migrations (<code>pnpm db:push</code>) to seed the
+            MDF 2026 lineup.
           </p>
         ) : (
           <p className="mt-2 text-sm text-neutral-400">

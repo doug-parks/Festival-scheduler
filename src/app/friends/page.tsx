@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { loadFriendsPageData } from "@/lib/friends/queries";
@@ -6,19 +7,17 @@ import { FindFriend } from "@/components/friends/find-friend";
 import { FriendsList } from "@/components/friends/friends-list";
 import { PendingRequests } from "@/components/friends/pending-requests";
 
+export const metadata: Metadata = {
+  title: "Friends — MDF 2026",
+};
+
 /**
- * Friends page — three vertically stacked sections per UX spec:
- *   1. Your MDF 2026 crew (invite link + member list)
+ * Friends page — three vertically stacked sections:
+ *   1. Share an invite link (personal follow-link)
  *   2. Mutual follows (friends list + Find a friend search)
  *   3. Friend requests (only when count > 0)
- *
- * All data is fetched server-side under the caller's RLS so the page is
- * safe to render even if a client component bug tries to over-fetch.
  */
 export default async function FriendsPage() {
-  // Reconstruct the request origin server-side so client components don't
-  // have to know how to build invite URLs. NEXT_PUBLIC_SITE_URL wins when
-  // present (production); otherwise we derive from the request host headers.
   const hdrs = await headers();
   const envOrigin = process.env.NEXT_PUBLIC_SITE_URL;
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
@@ -41,25 +40,16 @@ export default async function FriendsPage() {
       <header className="mb-8">
         <h1 className="text-2xl font-semibold">Friends</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Share an invite link with your crew, or follow individual friends
-          by username.
+          Share an invite link, or follow individual friends by username.
         </p>
       </header>
 
-      <InviteLinkSection
-        groupName={data.groupName}
-        inviteUrl={data.inviteUrl}
-        crew={data.crew}
-        currentUserId={data.userId}
-      />
+      <InviteLinkSection inviteUrl={data.inviteUrl} />
 
       <hr className="my-8 border-neutral-800" />
 
       <section aria-labelledby="follows-heading">
-        <h2
-          id="follows-heading"
-          className="mb-4 text-lg font-semibold"
-        >
+        <h2 id="follows-heading" className="mb-4 text-lg font-semibold">
           Mutual follows
         </h2>
         <div className="space-y-6">

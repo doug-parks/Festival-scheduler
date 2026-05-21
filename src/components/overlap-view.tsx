@@ -26,7 +26,6 @@ export type OverlapRow = {
 export type OverlapViewProps = {
   initialRows: Record<OverlapFilter, OverlapRow[]>;
   initialFilter: OverlapFilter;
-  userHasGroup: boolean;
   festivalTimezone: string;
   nowAndNextWindowHours: number;
   userId: string;
@@ -34,7 +33,6 @@ export type OverlapViewProps = {
 
 const CHIPS: { id: OverlapFilter; label: string; aria: string }[] = [
   { id: "all", label: "All", aria: "All friends, all days" },
-  { id: "crew", label: "This crew", aria: "Your festival group only" },
   { id: "today", label: "Today", aria: "Sets on today's date" },
   {
     id: "now-next",
@@ -127,11 +125,7 @@ export function OverlapView(props: OverlapViewProps) {
         </p>
       </header>
 
-      <FilterChips
-        value={filter}
-        onChange={setFilter}
-        userHasGroup={props.userHasGroup}
-      />
+      <FilterChips value={filter} onChange={setFilter} />
 
       <p
         aria-live="polite"
@@ -168,11 +162,9 @@ export function OverlapView(props: OverlapViewProps) {
 function FilterChips({
   value,
   onChange,
-  userHasGroup,
 }: {
   value: OverlapFilter;
   onChange: (next: OverlapFilter) => void;
-  userHasGroup: boolean;
 }) {
   // Keyboard nav: arrow keys move the active chip (radiogroup contract).
   const order = CHIPS.map((c) => c.id);
@@ -204,10 +196,6 @@ function FilterChips({
     >
       {CHIPS.map((chip) => {
         const active = chip.id === value;
-        // "This crew" with no group falls back to "All" in the page-level data,
-        // but we still let the chip be selected for clarity (the empty state
-        // explains the fallback).
-        const disabled = chip.id === "crew" && !userHasGroup;
         return (
           <button
             key={chip.id}
@@ -215,15 +203,13 @@ function FilterChips({
             role="radio"
             aria-checked={active}
             aria-label={chip.aria}
-            aria-disabled={disabled || undefined}
             tabIndex={active ? 0 : -1}
-            onClick={() => !disabled && onChange(chip.id)}
+            onClick={() => onChange(chip.id)}
             className={cn(
               "inline-flex h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
               active
                 ? "border-white bg-white text-neutral-950"
                 : "border-neutral-700 bg-neutral-900 text-neutral-200 hover:border-neutral-500",
-              disabled && "opacity-50",
             )}
           >
             {chip.label}
@@ -295,10 +281,8 @@ function EmptyState({ filter }: { filter: OverlapFilter }) {
     filter === "now-next"
       ? "Nothing in the next 2 hours yet."
       : filter === "today"
-        ? "No crew overlap for today."
-        : filter === "crew"
-          ? "Your crew hasn't started picking yet."
-          : "No overlapping picks yet — invite your crew to start seeing overlaps.";
+        ? "No friend overlap for today."
+        : "No overlapping picks yet — invite friends to start seeing overlaps.";
 
   return (
     <div className="mt-6 rounded-lg border border-dashed border-neutral-700 bg-neutral-900/40 p-6 text-center">
